@@ -9,19 +9,35 @@ import cv2
 import re
 import os
 import platform
+import subprocess
 
-# Set Tesseract path for Windows
-if platform.system() == "Windows":
-    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-else:
-    pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+# Set Tesseract path explicitly for Windows
+tesseract_path = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 # Verify Tesseract installation
-try:
-    pytesseract.get_tesseract_version()
-    st.info("Tesseract OCR is installed and accessible.")
-except Exception as e:
-    st.error(f"Tesseract is not installed or not in PATH: {e}. Please install Tesseract from https://github.com/UB-Mannheim/tesseract/wiki.")
+def verify_tesseract():
+    try:
+        # Check if tesseract executable exists
+        if not os.path.exists(pytesseract.pytesseract.tesseract_cmd):
+            raise FileNotFoundError(f"Tesseract executable not found at {pytesseract.pytesseract.tesseract_cmd}")
+        
+        # Run tesseract --version to verify
+        result = subprocess.run([pytesseract.pytesseract.tesseract_cmd, "--version"], 
+                              capture_output=True, text=True, check=True)
+        st.info(f"Tesseract OCR is installed: {result.stdout.splitlines()[0]}")
+        return True
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        st.error(f"Tesseract is not installed or not accessible: {e}")
+        st.error(f"Expected Tesseract at: {tesseract_path}")
+        st.error("1. Verify 'tesseract.exe' exists in 'C:\\Program Files\\Tesseract-OCR'.")
+        st.error("2. Reinstall Tesseract from: https://github.com/UB-Mannheim/tesseract/wiki")
+        st.error("3. Add 'C:\\Program Files\\Tesseract-OCR' to your system PATH using PowerShell:")
+        st.code('$tesseractPath = "C:\\Program Files\\Tesseract-OCR"\n$currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")\nif ($currentPath -notlike "*$tesseractPath*") {\n    [Environment]::SetEnvironmentVariable("Path", "$currentPath;$tesseractPath", "Machine")\n}')
+        st.error("4. Restart PowerShell or your computer after updating PATH.")
+        return False
+
+if not verify_tesseract():
     st.stop()
 
 # Streamlit app title
@@ -170,4 +186,3 @@ if uploaded_file is not None:
                 st.write(f"**Predicted Class**: {predicted_class} (Probability: {prediction[0][predicted_class]:.4f})")
             except Exception as e:
                 st.error(f"Prediction failed: {e}")
-
